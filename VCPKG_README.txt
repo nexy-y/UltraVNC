@@ -19,3 +19,4 @@ vcpkg install zlib:x86-windows
 vcpkg install zstd:x86-windows-static
 ..
 vcpkg integrate install
+test
