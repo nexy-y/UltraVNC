@@ -759,12 +759,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLin
 	while(g_passwordfailed==true)
 		{
 			g_passwordfailed=false;
-			if (app.m_options.m_connectionSpecified && !app.m_options.m_listening) {
-				app.NewConnection(false,app.m_options.m_host_options, app.m_options.m_port);
-			} else if (!app.m_options.m_listening) {
-				// This one will also read from config file if specified
-				app.NewConnection(false);
-			}
+    		app.NewConnection(false, app.m_options.m_host_options, app.m_options.m_port);
 
 			try
 			{
