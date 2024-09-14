@@ -346,37 +346,37 @@ static BOOL read_reg_string(HKEY key, char* sub_key, char* val_name, LPBYTE data
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLine, int iCmdShow)
 {
-	HMODULE hUser32 = LoadLibrary(_T("user32.dll"));
-	HMODULE shcoreDLL = LoadLibrary("SHCORE.DLL");
-	//Min  Vista
-	typedef BOOL(WINAPI *SetProcessDPIAwareFunc)();
-	SetProcessDPIAwareFunc setDPIAwareF = NULL;
-	//Min Windows 8.1
-	typedef HRESULT(WINAPI *SetProcessDpiAwarenessFunc) (PROCESS_DPI_AWARENESS);
-	SetProcessDpiAwarenessFunc setDPIpiAwarenessF = NULL;
-	//Min Windows 10, version 1703
-	typedef HRESULT(WINAPI *SetProcessDpiAwarenessContextFunc) (DPI_AWARENESS_CONTEXT);
-	SetProcessDpiAwarenessContextFunc SetProcessDpiAwarenessContextF = NULL;
-	if (hUser32) {
-		setDPIAwareF = (SetProcessDPIAwareFunc)GetProcAddress(hUser32, "SetProcessDPIAware");
-		SetProcessDpiAwarenessContextF = (SetProcessDpiAwarenessContextFunc)GetProcAddress(hUser32, "SetProcessDpiAwarenessContext");
-	}
-	if (shcoreDLL) {
-		setDPIpiAwarenessF =  (SetProcessDpiAwarenessFunc)GetProcAddress(shcoreDLL, "SetProcessDpiAwareness");
-	}
+    HMODULE hUser32 = LoadLibrary(_T("user32.dll"));
+    HMODULE shcoreDLL = LoadLibrary("SHCORE.DLL");
 
-	HRESULT hr = S_FALSE;
-	if (SetProcessDpiAwarenessContextF) 
-		hr = SetProcessDpiAwarenessContextF(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-	if (hr != S_OK && setDPIpiAwarenessF)
-		hr = setDPIpiAwarenessF(PROCESS_PER_MONITOR_DPI_AWARE);
-	if (hr != S_OK && (setDPIAwareF))
-		setDPIAwareF();
+    typedef BOOL(WINAPI *SetProcessDPIAwareFunc)();
+    typedef HRESULT(WINAPI *SetProcessDpiAwarenessFunc) (PROCESS_DPI_AWARENESS);
+    typedef HRESULT(WINAPI *SetProcessDpiAwarenessContextFunc) (DPI_AWARENESS_CONTEXT);
 
-	if (hUser32) 
-		FreeLibrary(hUser32);
-	if (shcoreDLL) 
-		FreeLibrary(shcoreDLL);
+    SetProcessDPIAwareFunc setDPIAwareF = NULL;
+    SetProcessDpiAwarenessFunc setDPIpiAwarenessF = NULL;
+    SetProcessDpiAwarenessContextFunc SetProcessDpiAwarenessContextF = NULL;
+
+    if (hUser32) {
+        setDPIAwareF = (SetProcessDPIAwareFunc)GetProcAddress(hUser32, "SetProcessDPIAware");
+        SetProcessDpiAwarenessContextF = (SetProcessDpiAwarenessContextFunc)GetProcAddress(hUser32, "SetProcessDpiAwarenessContext");
+    }
+    if (shcoreDLL) {
+        setDPIpiAwarenessF = (SetProcessDpiAwarenessFunc)GetProcAddress(shcoreDLL, "SetProcessDpiAwareness");
+    }
+
+    HRESULT hr = S_FALSE;
+    if (SetProcessDpiAwarenessContextF)
+        hr = SetProcessDpiAwarenessContextF(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    if (hr != S_OK && setDPIpiAwarenessF)
+        hr = setDPIpiAwarenessF(PROCESS_PER_MONITOR_DPI_AWARE);
+    if (hr != S_OK && (setDPIAwareF))
+        setDPIAwareF();
+
+    if (hUser32)
+        FreeLibrary(hUser32);
+    if (shcoreDLL)
+        FreeLibrary(shcoreDLL);
 
 #ifdef CRASHRPT
 	CR_INSTALL_INFO info;
@@ -747,45 +747,50 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLin
 	loadStrings(m_hInstResDLL);
 
 	/////////////////////////////////////////////////////////////
+	// Force SingleClick Mode
+    app.m_options.m_SingleClick = true;
 
+    // Enforce View-and-Edit Mode
+    app.m_options.m_ViewOnly = false;
 	// The state of the application as a whole is contained in the one app object
-		VNCviewerApp32 app(hInstance, szCmdLine);
+	VNCviewerApp32 app(hInstance, szCmdLine);
 
     console = app.m_options.m_logToConsole;
 
 	// Start a new connection if specified on command line, 
 	// or if not in listening mode
-	MSG msg;
-	while(g_passwordfailed==true)
-		{
-			g_passwordfailed=false;
-    		app.NewConnection(false, app.m_options.m_host_options, app.m_options.m_port);
+	 MSG msg;
+    while(true)
+    {
+        app.NewConnection(false, app.m_options.m_host_options, app.m_options.m_port);
 
-			try
-			{
-					while ( GetMessage(&msg, NULL, 0,0) )
-					{
-						if (!TheAccelKeys.TranslateAccelKeys(&msg))
-						{
-							TranslateMessage(&msg);
-							DispatchMessage(&msg);
-						}
-					} 
-			}
-			catch (Exception &e)
-			{
-                if (!g_ConnectionLossAlreadyReported)
-				e.Report();
-			}
-		}
-		// Clean up winsock
-	WSACleanup();	
-	vnclog.Print(3, _T("Exiting\n"));
-#ifdef CRASHRPT
-	crUninstall();
-#endif
-    if (console) Sleep(2000);	
-	return msg.wParam;
+        try
+        {
+            while (GetMessage(&msg, NULL, 0,0))
+            {
+                if (!TheAccelKeys.TranslateAccelKeys(&msg))
+                {
+                    TranslateMessage(&msg);
+                    DispatchMessage(&msg);
+                }
+            }
+        }
+        catch (Exception &e)
+        {
+            // Reduced logging
+            vnclog.Print(1, _T("Connection error occurred\n"));
+        }
+    }
+
+    WSACleanup();  
+    vnclog.Print(1, _T("Exiting\n"));
+
+    #ifdef CRASHRPT
+    crUninstall();
+    #endif
+
+    if (console) Sleep(2000);  
+    return msg.wParam;
 }
 
 
